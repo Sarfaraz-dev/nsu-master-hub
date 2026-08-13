@@ -1,0 +1,9 @@
+{
+  "name": "NSU Master Hub",
+  "short_name": "NSU Hub",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "description": "Personal four-year B.Tech CSE AI & ML learning operating system."
+}
