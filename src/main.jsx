@@ -5,24 +5,50 @@ import { cloud } from './lib/supabase.js';
 import './styles/app.css';
 
 const STORAGE = 'nsu-master-hub-v3';
+const DESIGN_VERSION = 'v2.0';
 const DEFAULT_STATE = {
   tab: 'dashboard', activeSem: 'sem1', selectedTopic: null,
   progress: {}, notes: {}, bookmarks: {},
   dsa: { easy: 0, medium: 0, hard: 0 },
   planner: {}, studyLog: [], customResources: [],
-  theme: 'dark', query: '', resourceFilter: 'all',
+  theme: 'light', query: '', resourceFilter: 'all', designVersion: DESIGN_VERSION,
   todayOverride: null, cloudUser: null, cloudAdmin: false, cloudConnected: false
 };
 
 function loadState() {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE));
-    return parsed ? { ...DEFAULT_STATE, ...parsed, dsa: { ...DEFAULT_STATE.dsa, ...(parsed.dsa || {}) } } : DEFAULT_STATE;
+    if (!parsed) return DEFAULT_STATE;
+    const merged = { ...DEFAULT_STATE, ...parsed, dsa: { ...DEFAULT_STATE.dsa, ...(parsed.dsa || {}) } };
+    if (parsed.designVersion !== DESIGN_VERSION) {
+      merged.theme = 'light';
+      merged.designVersion = DESIGN_VERSION;
+    }
+    return merged;
   } catch { return DEFAULT_STATE; }
 }
 
+
+function routeToHash(route) {
+  if (!route || !route.tab) return '#dashboard';
+  if (route.tab === 'semester') return `#semester/${route.activeSem || 'sem1'}`;
+  if (route.tab === 'topic') {
+    const topicId = route.selectedTopic?.id || 'current';
+    return `#topic/${route.activeSem || `sem${route.selectedTopic?.sem || 1}`}/${topicId}`;
+  }
+  return `#${route.tab}`;
+}
+
+function routeFromLocation() {
+  const raw = (window.location.hash || '#dashboard').replace(/^#/, '');
+  const parts = raw.split('/');
+  if (parts[0] === 'semester') return { tab: 'semester', activeSem: parts[1] || 'sem1', selectedTopic: null };
+  if (parts[0] === 'topic') return { tab: 'topic', activeSem: parts[1] || 'sem1', selectedTopic: null, topicId: parts[2] || null };
+  return { tab: parts[0] || 'dashboard', selectedTopic: null };
+}
+
 function App() {
-  const [state, setState] = useState(loadState);
+  const [state, setState] = useState(() => ({ ...loadState(), ...routeFromLocation() }));
   const [timer, setTimer] = useState(25 * 60);
   const [timerRunning, setTimerRunning] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
@@ -32,6 +58,22 @@ function App() {
   const [cloudBooted, setCloudBooted] = useState(false);
 
   useEffect(() => localStorage.setItem(STORAGE, JSON.stringify(state)), [state]);
+
+  useEffect(() => {
+    const onPopState = (event) => {
+      const route = event.state?.nsuRoute || routeFromLocation();
+      setState(s => ({ ...s, tab: route.tab || 'dashboard', activeSem: route.activeSem || s.activeSem, selectedTopic: route.selectedTopic || null }));
+    };
+    if (!window.location.hash) {
+      window.history.replaceState({ nsuRoute: { tab: state.tab, activeSem: state.activeSem, selectedTopic: null } }, '', routeToHash(state));
+    } else if (!window.history.state?.nsuRoute) {
+      window.history.replaceState({ nsuRoute: { tab: state.tab, activeSem: state.activeSem, selectedTopic: null } }, '', window.location.href);
+    }
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+    // Route listener intentionally mounts once; navigation helpers own history entries.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -53,15 +95,24 @@ function App() {
     return () => { cancelled = true; };
   }, []);
   useEffect(() => {
-    if (!cloud.configured || !state.cloudUser || !cloudBooted) return;
-    const id = setTimeout(() => {
-      const { cloudUser, cloudAdmin, cloudConnected, ...snapshot } = state;
-      cloud.saveUserState(state.cloudUser.id, snapshot)
-        .then(() => setCloudMessage('Cloud saved ✓'))
-        .catch(() => setCloudMessage('Cloud save failed'));
-    }, 900);
-    return () => clearTimeout(id);
-  }, [state]);
+  if (!state.configured || !state.cloudUser || !cloudBooted) return;
+
+  const id = setTimeout(() => {
+    const { cloudUser, cloudAdmin, cloudConnected, ...snapshot } = state;
+
+    cloud.saveUserState(state.cloudUser.id, snapshot)
+      .then(() => {
+        setCloudMessage('Cloud saved ✓');
+        setTimeout(() => setCloudMessage(''), 2000);
+      })
+      .catch(() => {
+        setCloudMessage('Cloud save failed');
+        setTimeout(() => setCloudMessage(''), 3000);
+      });
+  }, 900);
+
+  return () => clearTimeout(id);
+}, [state]);
   useEffect(() => {
     const onKey = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setCommandOpen(true); }
@@ -69,16 +120,6 @@ function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
-  useEffect(() => {
-    const onMove = (e) => {
-      const x = (e.clientX / window.innerWidth) * 100;
-      const y = (e.clientY / window.innerHeight) * 100;
-      document.documentElement.style.setProperty('--mx', `${x}%`);
-      document.documentElement.style.setProperty('--my', `${y}%`);
-    };
-    window.addEventListener('pointermove', onMove, { passive: true });
-    return () => window.removeEventListener('pointermove', onMove);
   }, []);
   useEffect(() => {
     if (!timerRunning) return;
@@ -89,13 +130,35 @@ function App() {
     return () => clearInterval(id);
   }, [timerRunning]);
 
-  const set = patch => setState(s => ({ ...s, ...patch }));
-  const openTab = (tab) => { set({ tab }); setMobileNav(false); };
+  const pushRoute = (route) => {
+    const cleaned = { tab: route.tab || 'dashboard', activeSem: route.activeSem || state.activeSem || 'sem1', selectedTopic: route.selectedTopic || null };
+    const nextHash = routeToHash(cleaned);
+    if (window.location.hash === nextHash && window.history.state?.nsuRoute) return;
+    window.history.pushState({ nsuRoute: cleaned }, '', nextHash);
+  };
+
+  const set = patch => {
+    const isNavigationPatch = Object.prototype.hasOwnProperty.call(patch, 'tab') ||
+      Object.prototype.hasOwnProperty.call(patch, 'activeSem') ||
+      Object.prototype.hasOwnProperty.call(patch, 'selectedTopic');
+    if (isNavigationPatch) {
+      const nextTab = patch.tab ?? state.tab;
+      const nextSem = patch.activeSem ?? state.activeSem;
+      const nextTopic = Object.prototype.hasOwnProperty.call(patch, 'selectedTopic') ? patch.selectedTopic : state.selectedTopic;
+      pushRoute({ tab: nextTab, activeSem: nextSem, selectedTopic: nextTopic });
+    }
+    setState(s => ({ ...s, ...patch }));
+  };
+
+  const openTab = (tab) => { set({ tab, selectedTopic: null }); setMobileNav(false); };
   const selectSem = id => { set({ activeSem: id, tab: 'semester', selectedTopic: null }); setMobileNav(false); };
   const toggleProgress = id => setState(s => ({ ...s, progress: { ...s.progress, [id]: !s.progress[id] } }));
   const toggleBookmark = id => setState(s => ({ ...s, bookmarks: { ...s.bookmarks, [id]: !s.bookmarks[id] } }));
   const updateNote = (id, value) => setState(s => ({ ...s, notes: { ...s.notes, [id]: value } }));
-  const openTopic = (topic, semester) => set({ selectedTopic: { ...topic, sem: semester.number }, tab: 'topic' });
+  const openTopic = (topic, semester) => {
+    const selectedTopic = { ...topic, sem: semester.number };
+    set({ selectedTopic, tab: 'topic', activeSem: semester.id });
+  };
 
   const allTasks = useMemo(() => semesters.flatMap(s => s.industry.flatMap(track => track.topics.map((topic, i) => ({
     id: `${s.id}:${track.id}:${i}`, sem: s.number, semId: s.id, trackId: track.id, trackTitle: track.title, label: topic
@@ -103,6 +166,14 @@ function App() {
   const completed = allTasks.filter(t => state.progress[t.id]).length;
   const overall = Math.round((completed / Math.max(1, allTasks.length)) * 100);
   const sem = semesters.find(s => s.id === state.activeSem) || semesters[0];
+
+  useEffect(() => {
+    const route = routeFromLocation();
+    if (route.tab !== 'topic' || state.selectedTopic || !route.topicId) return;
+    const targetSem = semesters.find(s => s.id === route.activeSem) || semesters[0];
+    const track = targetSem.industry.find(t => t.id === route.topicId);
+    if (track) setState(s => ({ ...s, activeSem: targetSem.id, tab: 'topic', selectedTopic: { ...track, sem: targetSem.number } }));
+  }, []);
   const totalDsa = Number(state.dsa.easy || 0) + Number(state.dsa.medium || 0) + Number(state.dsa.hard || 0);
 
   const today = useMemo(() => {
@@ -127,7 +198,7 @@ function App() {
       });
     });
     [...resourceLibrary, ...(state.customResources || [])].forEach(r => {
-      if (`${r.name} ${r.focus} ${r.lang}`.toLowerCase().includes(q)) out.push({ type: 'resource', resource: r });
+      if (`${r.name} ${r.focus} ${r.lang} ${r.semester||''} ${r.subject||''} ${r.topic||''} ${r.priority||''}`.toLowerCase().includes(q)) out.push({ type: 'resource', resource: r });
     });
     return out.slice(0, 30);
   }, [state.query, state.customResources]);
@@ -185,7 +256,7 @@ function App() {
         {state.tab === 'dashboard' && <Dashboard state={state} set={set} sem={sem} overall={overall} completed={completed} totalTasks={allTasks.length} totalDsa={totalDsa} today={today} openTopic={openTopic} selectSem={selectSem} />}
         {state.tab === 'roadmap' && <Roadmap selectSem={selectSem} openTopic={openTopic} />}
         {state.tab === 'semester' && <SemesterView sem={sem} state={state} semProgress={semProgress} toggleProgress={toggleProgress} toggleBookmark={toggleBookmark} openTopic={openTopic} />}
-        {state.tab === 'topic' && state.selectedTopic && <TopicView topic={state.selectedTopic} state={state} setState={setState} toggleProgress={toggleProgress} toggleBookmark={toggleBookmark} updateNote={updateNote} goBack={() => selectSem(`sem${state.selectedTopic.sem}`)} />}
+        {state.tab === 'topic' && state.selectedTopic && <TopicView topic={state.selectedTopic} state={state} setState={setState} toggleProgress={toggleProgress} toggleBookmark={toggleBookmark} updateNote={updateNote} goBack={() => window.history.length > 1 ? window.history.back() : selectSem(`sem${state.selectedTopic.sem}`)} />}
         {state.tab === 'resources' && <Resources state={state} set={set} />}
         {state.tab === 'practice' && <Practice timer={timer} setTimer={setTimer} running={timerRunning} setRunning={setTimerRunning} dsa={state.dsa} setState={setState} />}
         {state.tab === 'planner' && <Planner state={state} setState={setState} today={today} />}
@@ -200,7 +271,7 @@ function App() {
         {state.tab === 'admin' && state.cloudAdmin && <AdminConsole resources={adminResources} setResources={(rows)=>{setAdminResources(rows); setState(s=>({...s,customResources:rows}));}} message={cloudMessage} />}
       </main>
     </div>
-    <footer className="footer"><span>NSU Master Hub v0.4</span><span>Local-first • Resource-driven • Dependency-aware</span><span>© 2026</span></footer>
+    <footer className="footer"><span>NSU Master Hub</span><span>Personal Learning OS • Resource-driven • Dependency-aware</span><span>© 2026</span></footer>
   </div>;
 }
 
@@ -208,70 +279,145 @@ function Nav({ id, label, icon, state, set }) { return <button className={`nav-b
 function Card({ children, className='' }) { return <section className={`card ${className}`}>{children}</section>; }
 function Badge({ children, tone='blue' }) { return <span className={`badge ${tone}`}>{children}</span>; }
 function SectionHeader({ title, action }) { return <div className="section-header"><h2>{title}</h2>{action && <span className="muted caps">{action}</span>}</div>; }
-function Stat({ label, value, meta }) { return <Card className="stat"><div className="muted caps">{label}</div><div className="stat-value">{value}</div><div className="muted">{meta}</div></Card>; }
+function Stat({ label, value, meta, tone='' }) { return <Card className={`stat ${tone ? `stat-${tone}` : ''}`}><div className="muted caps">{label}</div><div className="stat-value">{value}</div><div className="muted">{meta}</div></Card>; }
 function ProgressBar({ value, tone='blue' }) { return <div className={`progress-track ${tone}`}><span style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></div>; }
 
 function Dashboard({ state, set, sem, overall, completed, totalTasks, totalDsa, today, openTopic, selectSem }) {
   const firstTrack = sem.industry[0];
   const todayLabel = today?.label || firstTrack.topics[0];
+  const yearMeta = [
+    ['01','Foundation','C++ · OOP · Git · DSA','Build reliable programming instincts.'],
+    ['02','Core CS + Data','Python · Math · DBMS · ML','Turn code into useful data systems.'],
+    ['03','AI/ML + Systems','DL · NLP · APIs · Docker · GenAI','Ship intelligent software, not demos.'],
+    ['04','Capstone + Career','MLOps · System Design · Placement','Turn your portfolio into evidence.']
+  ];
   return <>
-    <section className="hero">
-      <div className="hero-copy">
-        <div className="eyebrow">PERSONAL LEARNING OPERATING SYSTEM</div>
-        <h1>Build the engineer you want to become.</h1>
-        <p>NSU academics, industry skills, practice, projects, notes and career prep — arranged by prerequisites instead of hype.</p>
-        <div className="hero-actions"><button className="btn primary" onClick={() => openTopic(firstTrack, sem)}>Continue {firstTrack.title} →</button><button className="btn ghost" onClick={() => set({ tab: 'roadmap' })}>Explore 4-year map</button></div>
+    <section className="hero hero-gcore">
+      <div className="hero-gcore-copy">
+        <div className="eyebrow">YOUR 4-YEAR ENGINEERING JOURNEY</div>
+        <h1>Build the engineer <span>you want to become.</span></h1>
+        <p>Your deliberate learning system for NSU academics, industry skills, practice and projects — sequenced so every milestone opens the next useful one.</p>
+        <div className="hero-actions">
+          <button className="btn primary" onClick={() => openTopic(firstTrack, sem)}>Continue learning <span>→</span></button>
+          <button className="btn ghost" onClick={() => set({ tab: 'roadmap' })}>Explore 4-year roadmap</button>
+        </div>
         <div className="hero-tags"><Badge>{sem.phase}</Badge><Badge tone="green">Semester {sem.number}</Badge><Badge tone="purple">Hindi/Hinglish-first</Badge></div>
       </div>
-      <div className="hero-ring-wrap"><div className="ring" style={{ '--pct': `${overall * 3.6}deg` }}><span>{overall}%</span></div><div><div className="caps">ROADMAP COMPLETION</div><strong>{completed}/{totalTasks}</strong><div className="muted">industry checkpoints</div></div></div>
+
+      <div className="hero-gcore-stage" aria-label="NSU Learning OS skill network">
+        <div className="gcore-ambient" aria-hidden="true"></div>
+        <div className="gcore-network">
+          <svg className="gcore-lines" viewBox="0 0 520 320" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M80 70 H176 L260 160 L344 70 H440" />
+            <path d="M80 250 H176 L260 160 L344 250 H440" />
+            <path d="M176 70 L176 250 M344 70 L344 250" />
+          </svg>
+          <div className="gcore-node gcore-cpp"><strong>C++</strong><span>Foundation</span></div>
+          <div className="gcore-node gcore-ml"><strong>ML</strong><span>Intelligence</span></div>
+          <div className="gcore-node gcore-dsa"><strong>DSA</strong><span>Problem solving</span></div>
+          <div className="gcore-node gcore-python"><strong>Python</strong><span>Data + AI</span></div>
+          <div className="gcore-node gcore-ai"><strong>AI</strong><span>Reasoning</span></div>
+          <div className="gcore-node gcore-projects"><strong>Projects</strong><span>Proof</span></div>
+          <div className="gcore-core">
+            <span>NSU</span>
+            <strong>Learning<br/>OS</strong>
+            <small>2026 → 2030</small>
+          </div>
+        </div>
+        <div className="gcore-metrics">
+          <div className="gcore-metric"><span>ROADMAP</span><strong>{overall}%</strong><small>{completed}/{totalTasks} checkpoints</small></div>
+          <div className="gcore-metric feature"><span>CURRENT FOCUS</span><strong>{todayLabel}</strong><small>Semester {sem.number} · {sem.phase}</small></div>
+          <div className="gcore-metric"><span>DSA SOLVED</span><strong>{totalDsa}</strong><small>{state.dsa.medium} medium · {state.dsa.hard} hard</small></div>
+        </div>
+      </div>
     </section>
 
-    <div className="stat-grid">
-      <Stat label="NSU credits" value="168" meta="8 semesters" />
-      <Stat label="Target CGPA" value="8.5+" meta="academic baseline" />
-      <Stat label="Current phase" value={`Sem ${sem.number}`} meta={sem.phase} />
-      <Stat label="DSA solved" value={totalDsa} meta={`${state.dsa.medium} medium · ${state.dsa.hard} hard`} />
+    <div className="stat-grid stat-strip">
+      <Stat tone="blue" label="NSU credits" value="168" meta="8 semesters" />
+      <Stat tone="amber" label="Target CGPA" value="8.5+" meta="academic baseline" />
+      <Stat tone="teal" label="Current phase" value={`Sem ${sem.number}`} meta={sem.phase} />
+      <Stat tone="violet" label="DSA solved" value={totalDsa} meta={`${state.dsa.medium} medium · ${state.dsa.hard} hard`} />
     </div>
 
-    <div className="section-title-row"><div><div className="eyebrow">TODAY</div><h2>What should you do next?</h2></div><button className="btn ghost small" onClick={() => set({ tab: 'planner' })}>Open planner →</button></div>
-    <div className="grid two">
-      <Card className="mission-card">
-        <SectionHeader title="Next best action" action="dependency-first" />
-        <div className="mission"><div className="mission-icon">01</div><div><Badge tone="purple">Semester {today?.sem || sem.number}</Badge><h3>{todayLabel}</h3><p className="muted">Complete the concept, write code yourself, then do unguided practice. The next checkpoint unlocks after you mark this complete.</p><button className="btn primary small" onClick={() => openTopic(firstTrack, sem)}>Open learning path →</button></div></div>
+    <div className="section-title-row editorial-row"><div><div className="eyebrow">TODAY</div><h2>Make the next hour count.</h2><p className="muted">One focused unit is better than ten tabs left open.</p></div><button className="btn ghost small" onClick={() => set({ tab: 'planner' })}>Open planner →</button></div>
+    <div className="today-grid">
+      <Card className="mission-card mission-v12">
+        <div className="mission-kicker"><Badge tone="purple">NEXT BEST ACTION</Badge><span className="caps">DEPENDENCY-FIRST</span></div>
+        <div className="mission-main"><div className="mission-number">01</div><div><div className="muted caps">SEMESTER {today?.sem || sem.number}</div><h3>{todayLabel}</h3><p className="muted">Learn the concept, write the code without copying, then do unguided practice. Finish this checkpoint before opening the next one.</p><div className="mission-actions"><button className="btn primary small" onClick={() => openTopic(firstTrack, sem)}>Open learning path →</button><button className="text-link" onClick={()=>selectSem(sem.id)}>View semester</button></div></div></div>
+        <div className="learn-loop"><div><span>01</span><strong>Learn</strong><small>Understand the idea</small></div><div><span>02</span><strong>Code</strong><small>Type it yourself</small></div><div><span>03</span><strong>Practice</strong><small>Prove you can use it</small></div></div>
       </Card>
-      <Card>
-        <SectionHeader title="Current semester" action={`${semProgressFromSemester(sem, state)}% complete`} />
-        {sem.industry.slice(0, 3).map((track, i) => <MiniTrack key={track.id} track={track} sem={sem} state={state} index={i} openTopic={openTopic} />)}
+      <Card className="semester-pulse">
+        <div className="section-header"><h2>Semester {sem.number}</h2><span className="muted caps">{semProgressFromSemester(sem, state)}% complete</span></div>
+        <div className="semester-pulse-head"><div><strong>{sem.phase}</strong><p className="muted">{sem.subjects.map(x=>x[1]).slice(0,2).join(' · ')}</p></div><div className="semester-ring"><span>{semProgressFromSemester(sem,state)}%</span></div></div>
+        <div className="pulse-list">{sem.industry.slice(0,3).map((track,i)=><MiniTrack key={track.id} track={track} sem={sem} state={state} index={i} openTopic={openTopic} />)}</div>
       </Card>
     </div>
 
-    <div className="section-title-row"><div><div className="eyebrow">4-YEAR VIEW</div><h2>From foundation to job-ready</h2></div><button className="btn ghost small" onClick={() => set({ tab: 'roadmap' })}>See full roadmap →</button></div>
-    <div className="year-grid">{['Foundation','Core CS + Data','AI/ML + Systems','Capstone + Career'].map((x,i)=><Card key={x} className="year-card"><div className="year-num">0{i+1}</div><div><div className="muted caps">YEAR {i+1}</div><h3>{x}</h3><p className="muted">{['C++ · OOP · Git · DSA','Python · Math · ML · DBMS','DL · NLP · APIs · Docker · GenAI','MLOps · System Design · Capstone · Placement'][i]}</p></div></Card>)}</div>
+    <div className="section-title-row editorial-row"><div><div className="eyebrow">THE LONG GAME</div><h2>Four years. Four different jobs to do.</h2><p className="muted">Each phase earns the right to learn the next one.</p></div><button className="btn ghost small" onClick={() => set({ tab: 'roadmap' })}>See full roadmap →</button></div>
+    <div className="year-showcase">{yearMeta.map(([num,title,stack,desc],i)=><button key={title} className={`year-showcase-card year-accent-${i+1}`} onClick={()=>selectSem(`sem${i*2+1}`)}><div className="year-showcase-top"><span>{num}</span><span className="caps">YEAR {i+1}</span></div><div><h3>{title}</h3><p>{desc}</p></div><div className="year-stack">{stack}</div><span className="year-arrow">↗</span></button>)}</div>
   </>;
 }
 
 function semProgressFromSemester(sem, state) { const total = sem.industry.reduce((n,t)=>n+t.topics.length,0); const done = sem.industry.reduce((n,t)=>n+t.topics.filter((_,i)=>state.progress[`${sem.id}:${t.id}:${i}`]).length,0); return Math.round(done/Math.max(1,total)*100); }
 function MiniTrack({ track, sem, state, index, openTopic }) { const done = track.topics.filter((_,i)=>state.progress[`${sem.id}:${track.id}:${i}`]).length; return <button className="mini-track" onClick={() => openTopic(track, sem)}><div className="track-index">0{index+1}</div><div className="mini-track-main"><strong>{track.title}</strong><span className="muted">{done}/{track.topics.length} checkpoints</span><ProgressBar value={done/Math.max(1,track.topics.length)*100} /></div><span className="arrow">→</span></button>; }
 
-function Roadmap({ selectSem, openTopic }) { return <div><div className="page-head"><div><div className="eyebrow">MASTER ROADMAP</div><h1>Eight semesters. One dependency-aware path.</h1><p>University courses remain the academic backbone. Industry tracks fill the gaps without pretending they are official NSU topic lists.</p></div></div><div className="timeline">{semesters.map((s,i)=><Card key={s.id} className="timeline-card"><div className="timeline-left"><div className="semester-index large">{s.number}</div><div><div className="muted caps">SEMESTER {s.number} • {s.credits} CREDITS</div><h2>{s.phase}</h2><p className="muted">{s.subjects.map(x=>x[1]).slice(0,4).join(' · ')}</p></div></div><div className="timeline-right">{s.industry.map(track=><button key={track.id} className="road-track" onClick={()=>openTopic(track,s)}><div><strong>{track.title}</strong><span className="muted">{track.weeks} weeks · {track.priority}</span></div><span>→</span></button>)}</div><button className="btn ghost small" onClick={()=>selectSem(s.id)}>Open Semester {s.number} →</button></Card>)}</div></div>; }
+function Roadmap({ selectSem, openTopic }) {
+  const years = [
+    { label:'YEAR 01', title:'Foundation', tone:'violet', sems:semesters.slice(0,2), copy:'Programming instincts, mathematics and problem solving.' },
+    { label:'YEAR 02', title:'Core CS + Data', tone:'coral', sems:semesters.slice(2,4), copy:'Data structures, ML, databases, systems and software.' },
+    { label:'YEAR 03', title:'AI/ML + Systems', tone:'teal', sems:semesters.slice(4,6), copy:'Advanced ML, NLP, deep learning and production foundations.' },
+    { label:'YEAR 04', title:'Capstone + Career', tone:'amber', sems:semesters.slice(6,8), copy:'Specialize, ship the capstone and convert work into evidence.' },
+  ];
+  return <div className="roadmap-v12 page-roadmap">
+    <div className="page-head roadmap-hero-head"><div><div className="eyebrow">MASTER ROADMAP</div><h1>Eight semesters.<br/><em>One compounding path.</em></h1><p>University courses remain the academic backbone. The industry track fills the gaps — with every topic placed after the prerequisites it actually needs.</p></div><div className="roadmap-head-stat"><span className="caps">DESIGN PRINCIPLE</span><strong>Learn → Build → Prove</strong><small>Depth over noise.</small></div></div>
+    <div className="year-rail-v12">{years.map((year,yi)=><section key={year.label} className={`year-section-v12 tone-${year.tone}`}><div className="year-marker"><span>{String(yi+1).padStart(2,'0')}</span><small>{year.label}</small></div><div className="year-copy"><div className="eyebrow">{year.label}</div><h2>{year.title}</h2><p>{year.copy}</p></div><div className="year-semesters">{year.sems.map(s=><article key={s.id} className="semester-journey-card"><div className="semester-journey-head"><div><span className="caps">SEMESTER {s.number} • {s.credits} CREDITS</span><h3>{s.phase}</h3><p>{s.subjects.map(x=>x[1]).slice(0,3).join(' · ')}</p></div><button className="round-arrow" onClick={()=>selectSem(s.id)}>↗</button></div><div className="semester-track-stack">{s.industry.map((track,idx)=><button key={track.id} className="semester-track-pill" onClick={()=>openTopic(track,s)}><span className="track-num">{String(idx+1).padStart(2,'0')}</span><span><strong>{track.title}</strong><small>{track.weeks} weeks · {track.priority}</small></span><span className="track-arrow">→</span></button>)}</div></article>)}</div></section>)}</div>
+  </div>;
+}
 
-function SemesterView({ sem, state, semProgress, toggleProgress, toggleBookmark, openTopic }) { return <div><div className="page-head compact"><div><div className="eyebrow">SEMESTER {sem.number} • {sem.credits} CREDITS</div><h1>{sem.phase}</h1><p>Official subjects are shown separately from recommended industry mastery.</p></div><div className="head-progress"><strong>{semProgress}%</strong><ProgressBar value={semProgress} /><span className="muted">industry checkpoints</span></div></div><div className="grid two align-start"><Card><SectionHeader title="NSU academic backbone" action="official structure"/><div className="subject-list">{sem.subjects.map(([code,name,credits,tag])=><div key={code} className="subject-row"><div><strong>{code}</strong><span>{name}</span></div><Badge tone="blue">{credits} cr</Badge></div>)}</div><div className="source-note">Note: the provided university PDF establishes the subject/credit structure, but does not consistently provide detailed topic-level outlines. Topic breakdowns in the other column are recommendations.</div></Card><Card><SectionHeader title="Industry mastery track" action="recommended"/>{sem.industry.map(track=><TrackCard key={track.id} track={track} sem={sem} state={state} toggleProgress={toggleProgress} toggleBookmark={toggleBookmark} openTopic={openTopic}/>)}</Card></div></div>; }
+function SemesterView({ sem, state, semProgress, toggleProgress, toggleBookmark, openTopic }) {
+  const academicCredits = sem.subjects.reduce((n,s)=>n + Number(s[2] || 0), 0);
+  return <div className="semester-v13 page-semester">
+    <div className="semester-hero-v13">
+      <div><div className="eyebrow">SEMESTER {sem.number} · {sem.credits} CREDITS</div><h1>{sem.phase}</h1><p>University structure stays on the left. Your industry path sits beside it — so you always know what to study for college and what to learn to become job-ready.</p><div className="semester-meta-row"><Badge tone="green">{academicCredits} academic credits listed</Badge><Badge tone="purple">{sem.industry.length} industry tracks</Badge><Badge>Hindi/Hinglish-first</Badge></div></div>
+      <div className="semester-progress-panel-v13"><div className="caps">INDUSTRY MASTERY</div><div className="big-percent-v13">{semProgress}%</div><ProgressBar value={semProgress} tone="green"/><div className="muted">Complete checkpoints in order to unlock the next layer.</div></div>
+    </div>
+    <div className="semester-columns-v13">
+      <section className="academic-panel-v13"><div className="panel-kicker-row"><div><div className="eyebrow">01 · UNIVERSITY</div><h2>Academic backbone</h2></div><span className="caps">OFFICIAL STRUCTURE</span></div><div className="subject-list-v13">{sem.subjects.map(([code,name,credits,tag],i)=><div key={code} className="subject-card-v13"><span className="subject-index-v13">{String(i+1).padStart(2,'0')}</span><div className="subject-copy-v13"><div className="caps">{code} · {credits} CR</div><strong>{name}</strong>{tag && <span>{tag}</span>}</div><span className="subject-arrow-v13">↗</span></div>)}</div><div className="source-note-v13"><strong>Source note</strong><span>The provided university PDF establishes subject/credit structure, but does not consistently provide detailed topic-level outlines. Detailed breakdowns in the industry column are recommendations.</span></div></section>
+      <section className="industry-panel-v13"><div className="panel-kicker-row"><div><div className="eyebrow">02 · INDUSTRY</div><h2>Mastery track</h2></div><span className="caps">RECOMMENDED</span></div><div className="industry-stack-v13">{sem.industry.map((track,idx)=><TrackCard key={track.id} track={track} sem={sem} state={state} toggleProgress={toggleProgress} toggleBookmark={toggleBookmark} openTopic={openTopic} index={idx}/>)}</div></section>
+    </div>
+  </div>;
+}
 
-function TrackCard({ track, sem, state, toggleProgress, toggleBookmark, openTopic }) { const done = track.topics.filter((_,i)=>state.progress[`${sem.id}:${track.id}:${i}`]).length; return <div className="track-card"><div className="track-head"><div><Badge tone={track.priority==='MUST'?'red':'green'}>{track.priority}</Badge><h3>{track.title}</h3><p className="muted">Prereq: {track.prereq} · {track.weeks} weeks</p></div><button className={`icon-action ${state.bookmarks[`${sem.id}:${track.id}`]?'bookmarked':''}`} onClick={()=>toggleBookmark(`${sem.id}:${track.id}`)}>★</button></div><ProgressBar value={done/Math.max(1,track.topics.length)*100} /><div className="topic-grid">{track.topics.map((t,i)=>{const id=`${sem.id}:${track.id}:${i}`; return <label key={id} className={`topic-row ${state.progress[id]?'done':''}`}><input type="checkbox" checked={!!state.progress[id]} onChange={()=>toggleProgress(id)}/><span>{t}</span><button className="tiny-link" type="button" onClick={()=>openTopic(track,sem)}>open</button></label>;})}</div><div className="resource-inline"><span>Primary: <strong>{track.resource.name}</strong></span><a href={track.resource.url} target="_blank" rel="noreferrer">Open resource ↗</a></div><button className="btn ghost small wide" onClick={()=>openTopic(track,sem)}>Deep dive →</button></div>; }
+function TrackCard({ track, sem, state, toggleProgress, toggleBookmark, openTopic, index=0 }) {
+  const done=track.topics.filter((_,i)=>state.progress[`${sem.id}:${track.id}:${i}`]).length; const pct=Math.round(done/Math.max(1,track.topics.length)*100);
+  return <article className={`track-card-v13 accent-${(index%4)+1}`}><div className="track-top-v13"><div className="track-num-v13">{String(index+1).padStart(2,'0')}</div><div className="track-title-v13"><Badge tone={track.priority==='MUST'?'red':'green'}>{track.priority}</Badge><h3>{track.title}</h3><p>{track.prereq} · {track.weeks} weeks</p></div><button className={`icon-action ${state.bookmarks[`${sem.id}:${track.id}`]?'bookmarked':''}`} onClick={()=>toggleBookmark(`${sem.id}:${track.id}`)}>★</button></div><div className="track-progress-row-v13"><ProgressBar value={pct} tone="green"/><span>{done}/{track.topics.length}</span></div><div className="track-topic-stack-v13">{track.topics.map((t,i)=>{const id=`${sem.id}:${track.id}:${i}`; const unlocked=i===0 || state.progress[`${sem.id}:${track.id}:${i-1}`]; return <button key={id} className={`track-topic-v13 ${state.progress[id]?'done':''} ${!unlocked?'locked':''}`} onClick={()=>openTopic(track,sem)}><span className="topic-check-v13">{state.progress[id]?'✓':String(i+1).padStart(2,'0')}</span><span>{t}</span><span>{unlocked?'→':'LOCKED'}</span></button>})}</div><div className="track-footer-v13"><div><span className="caps">PRIMARY RESOURCE</span><strong>{track.resource?.name || 'Curated resource'}</strong></div><div className="track-links-v13"><a href={track.resource?.url} target="_blank" rel="noreferrer">Open ↗</a><button onClick={()=>openTopic(track,sem)}>Deep dive →</button></div></div></article>;
+}
 
-function TopicView({ topic, state, setState, toggleProgress, toggleBookmark, updateNote, goBack }) { const semId=`sem${topic.sem}`; const sem=semesters.find(s=>s.id===semId)||semesters[0]; const done=topic.topics.map((_,i)=>state.progress[`${sem.id}:${topic.id}:${i}`]).filter(Boolean).length; return <div><div className="page-head compact"><div><button className="text-link" onClick={goBack}>← Back to Semester {topic.sem}</button><div className="eyebrow">TOPIC DEEP DIVE</div><h1>{topic.title}</h1><p>{topic.prereq}</p></div><div className="topic-score"><strong>{done}/{topic.topics.length}</strong><span className="muted">checkpoints</span></div></div><div className="grid two align-start"><Card><SectionHeader title="Learning sequence" action="unlock in order"/>{topic.topics.map((label,i)=>{const id=`${sem.id}:${topic.id}:${i}`; const prev=i===0 || state.progress[`${sem.id}:${topic.id}:${i-1}`]; return <div key={id} className={`deep-topic ${state.progress[id]?'complete':''} ${!prev?'locked':''}`}><div className="deep-num">{String(i+1).padStart(2,'0')}</div><div className="deep-main"><strong>{label}</strong><span className="muted">{i===0?'Start here':prev?'Unlocked':'Complete the previous checkpoint'}</span></div><label className="check-wrap"><input type="checkbox" disabled={!prev} checked={!!state.progress[id]} onChange={()=>toggleProgress(id)}/></label></div>})}</Card><div className="stack"><Card><SectionHeader title="Primary resource" action="open & learn"/><ResourceCard resource={topic.resource}/><div className="resource-box"><strong>Practice</strong><div>{topic.practice?.name || 'Build a tiny exercise set'}</div>{topic.practice?.url && topic.practice.url !== '#' && <a href={topic.practice.url} target="_blank" rel="noreferrer">Open practice ↗</a>}</div></Card><Card><SectionHeader title="My notes" action="autosaved locally"/><textarea className="notes-editor" value={state.notes[`topic:${sem.id}:${topic.id}`]||''} onChange={e=>updateNote(`topic:${sem.id}:${topic.id}`,e.target.value)} placeholder="Write formulas, mistakes, examples, links, interview questions..."/><div className="note-actions"><button className={`btn ${state.bookmarks[`${sem.id}:${topic.id}`]?'warning':'ghost'} small`} onClick={()=>toggleBookmark(`${sem.id}:${topic.id}`)}>{state.bookmarks[`${sem.id}:${topic.id}`]?'★ Bookmarked':'☆ Bookmark topic'}</button></div></Card><Card className="rule-card"><strong>7-step mastery loop</strong><p className="muted">Learn → Understand → Code → Practice → Build → Explain → Revise. Avoid copy-paste learning; use AI for hints after your own attempt.</p></Card></div></div></div>; }
+function TopicView({ topic, state, setState, toggleProgress, toggleBookmark, updateNote, goBack }) {
+  const semId=`sem${topic.sem}`; const sem=semesters.find(s=>s.id===semId)||semesters[0]; const done=topic.topics.map((_,i)=>state.progress[`${sem.id}:${topic.id}:${i}`]).filter(Boolean).length; const pct=Math.round(done/Math.max(1,topic.topics.length)*100); const nextIndex=Math.min(done,Math.max(0,topic.topics.length-1));
+  return <div className="topic-v13 page-topic"><div className="topic-hero-v13"><div><button className="text-link" onClick={goBack}>← Semester {topic.sem}</button><div className="eyebrow">TOPIC DEEP DIVE · {sem.phase}</div><h1>{topic.title}</h1><p>{topic.prereq}</p><div className="topic-hero-actions"><Badge tone="purple">{topic.priority}</Badge><Badge tone="green">{topic.weeks} weeks</Badge><a className="btn primary small" href={topic.resource?.url} target="_blank" rel="noreferrer">Open primary resource ↗</a></div></div><div className="topic-score-v13"><span className="caps">CHECKPOINTS</span><strong>{done}/{topic.topics.length}</strong><ProgressBar value={pct} tone="green"/><small>Next: {topic.topics[nextIndex] || 'Complete'}</small></div></div>
+  <div className="topic-layout-v13"><section className="topic-sequence-v13"><div className="sequence-head-v13"><div><div className="eyebrow">01 · LEARNING PATH</div><h2>Unlock the sequence.</h2></div><span className="caps">DEPENDENCY-FIRST</span></div><div className="sequence-list-v13">{topic.topics.map((label,i)=>{const id=`${sem.id}:${topic.id}:${i}`; const prev=i===0 || state.progress[`${sem.id}:${topic.id}:${i-1}`]; const doneNow=!!state.progress[id]; return <div key={id} className={`sequence-item-v13 ${doneNow?'complete':''} ${!prev?'locked':''}`}><div className="sequence-number-v13">{String(i+1).padStart(2,'0')}</div><div className="sequence-main-v13"><strong>{label}</strong><span>{doneNow?'Completed':prev?'Unlocked':'Complete the previous step first'}</span></div><label className="sequence-check-v13"><input type="checkbox" disabled={!prev} checked={doneNow} onChange={()=>toggleProgress(id)}/><span>{doneNow?'✓':'+'}</span></label></div>})}</div></section>
+  <aside className="topic-side-v13"><section className="topic-resource-v13"><div className="eyebrow">02 · LEARN</div><h3>Primary resource</h3><div className="topic-resource-card-v13"><Badge tone={topic.resource?.lang?.includes('Hindi')?'green':'blue'}>{topic.resource?.lang || 'Resource'}</Badge><strong>{topic.resource?.name || 'Curated resource'}</strong><span>{topic.resource?.focus || topic.title}</span><a href={topic.resource?.url} target="_blank" rel="noreferrer">Open lesson ↗</a></div><div className="practice-link-v13"><span className="caps">PRACTICE</span><strong>{topic.practice?.name || 'Build a tiny exercise set'}</strong>{topic.practice?.url && topic.practice.url!=='#' && <a href={topic.practice.url} target="_blank" rel="noreferrer">Open practice ↗</a>}</div></section><section className="topic-notes-v13"><div className="note-head-v13"><div className="eyebrow">03 · REFLECT</div><button className={`btn ${state.bookmarks[`${sem.id}:${topic.id}`]?'warning':'ghost'} small`} onClick={()=>toggleBookmark(`${sem.id}:${topic.id}`)}>{state.bookmarks[`${sem.id}:${topic.id}`]?'★ Saved':'☆ Save'}</button></div><h3>Your notes</h3><textarea value={state.notes[`topic:${sem.id}:${topic.id}`]||''} onChange={e=>updateNote(`topic:${sem.id}:${topic.id}`,e.target.value)} placeholder="Formulas, bugs, examples, questions, interview notes..."/><small>Autosaved with your workspace.</small></section></aside></div></div>;
+}
 
-function ResourceCard({ resource }) { return <div className="resource-card"><div><Badge tone={resource.lang?.includes('Hindi')?'green':'blue'}>{resource.lang || 'Resource'}</Badge><h3>{resource.name}</h3><p className="muted">{resource.focus}</p></div><a className="btn primary small" href={resource.url} target="_blank" rel="noreferrer">Open ↗</a></div>; }
+function ResourceCard({ resource, index }) { const tones=['violet','teal','amber','coral','blue','pink']; return <article className={`resource-card-v13 resource-tone-${tones[index%tones.length]}`}><div className="resource-card-top"><Badge tone={resource.lang?.includes('Hindi')?'green':'blue'}>{resource.kind || resource.lang || 'Resource'}</Badge><span className="resource-index">{String(index+1).padStart(2,'0')}</span></div><div className="resource-card-main-v13"><h3>{resource.name}</h3><p>{resource.description || resource.focus || 'Learning resource'}</p><div className="resource-meta-v13">{[resource.lang,resource.semester,resource.subject,resource.topic,resource.priority].filter(Boolean).map(x=><span key={x}>{x}</span>)}</div></div><div className="resource-card-action-v13"><a className="btn primary small" href={resource.url} target="_blank" rel="noreferrer">Open ↗</a>{resource.practice_url && <a className="text-link" href={resource.practice_url} target="_blank" rel="noreferrer">Practice ↗</a>}</div></article>; }
 
-function Resources({ state, set }) { const all=[...resourceLibrary,...(state.customResources||[])]; const filter=state.resourceFilter; const visible=all.filter(r=>filter==='all'||(r.lang||'').toLowerCase().includes(filter)); const [name,setName]=useState(''); const [url,setUrl]=useState(''); const [focus,setFocus]=useState(''); const add=()=>{if(!name||!url)return; const resource={name,url,focus:focus||'Custom resource',lang:'Custom'}; set({customResources:[...(state.customResources||[]),resource]});setName('');setUrl('');setFocus('');}; return <div><PageTitle eyebrow="RESOURCE LIBRARY" title="One place for learning sources" subtitle="Keep resource content centralized so links can be refreshed without redesigning the application."/><div className="filter-row">{['all','hindi','english','custom'].map(x=><button key={x} className={`filter-btn ${filter===x?'active':''}`} onClick={()=>set({resourceFilter:x})}>{x}</button>)}</div><div className="resource-grid">{visible.map(r=><Card key={r.name+r.url}><ResourceCard resource={r}/></Card>)}</div><Card className="add-resource"><SectionHeader title="Add a resource locally" action="easy to update"/><div className="form-grid"><input value={name} onChange={e=>setName(e.target.value)} placeholder="Resource name"/><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="URL"/><input value={focus} onChange={e=>setFocus(e.target.value)} placeholder="Focus / topic"/><button className="btn primary" onClick={add}>Add resource</button></div><p className="muted">Custom resources live in your browser state. The master catalog remains in <code>src/data/content.js</code> for developer-managed updates.</p></Card></div>; }
+function Resources({ state, set }) {
+  const all=useMemo(()=>[...resourceLibrary,...(state.customResources||[])],[state.customResources]); const [q,setQ]=useState(''); const filter=state.resourceFilter; const visible=all.filter(r=>{const hay=`${r.name} ${r.focus} ${r.semester||''} ${r.subject||''} ${r.topic||''} ${r.lang||''} ${r.priority||''}`.toLowerCase(); const matchesFilter=filter==='all'||(filter==='custom'?Boolean(r.id):(r.lang||'').toLowerCase().includes(filter)); return (!q||hay.includes(q.toLowerCase()))&&matchesFilter;}); const featured=visible.find(r=>r.priority==='MUST')||visible[0];
+  return <div className="resources-v13 page-resources"><div className="resources-hero-v13"><div><div className="eyebrow">RESOURCE LIBRARY</div><h1>Learn from the right source at the right time.</h1><p>Every resource should answer a specific question in the roadmap. Hindi/Hinglish stays first where quality is strong; English enters when documentation or depth requires it.</p><div className="resource-filter-pills">{['all','hindi','english','custom'].map(x=><button key={x} className={filter===x?'active':''} onClick={()=>set({resourceFilter:x})}>{x}</button>)}</div></div><div className="resource-hero-count"><span className="caps">CURATED SOURCES</span><strong>{all.length}</strong><small>stored in your learning catalog</small></div></div>
+  <div className="resource-toolbar-v13"><div><div className="eyebrow">DISCOVER</div><h2>{visible.length} resources</h2></div><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search topic, subject, semester…" /></div>
+  {featured&&<div className="featured-resource-v13"><div><div className="eyebrow">FEATURED / {featured.priority||'RESOURCE'}</div><h2>{featured.name}</h2><p>{featured.description||featured.focus}</p><div className="featured-chips">{[featured.lang,featured.semester,featured.subject,featured.topic].filter(Boolean).map(x=><span key={x}>{x}</span>)}</div></div><div className="featured-action-v13"><div className="featured-mark">↗</div><a className="btn primary" href={featured.url} target="_blank" rel="noreferrer">Open resource</a>{featured.practice_url&&<a className="text-link" href={featured.practice_url} target="_blank" rel="noreferrer">Practice ↗</a>}</div></div>}
+  <div className="resource-list-v13">{visible.map((r,i)=><ResourceCard key={`${r.id||r.name}-${r.url}`} resource={r} index={i}/>) }{!visible.length&&<div className="empty-state-v13"><strong>No resources matched.</strong><span>Try a broader topic or remove the filter.</span></div>}</div>
+  <Card className="resource-note-v13"><div><div className="eyebrow">MAINTENANCE</div><h3>Keep the catalog fresh without touching the UI.</h3><p className="muted">Your cloud-backed Admin Console can edit resources without redeploying the application.</p></div><button className="btn ghost" onClick={()=>set({tab:state.cloudAdmin?'admin':'settings'})}>{state.cloudAdmin?'Open Admin Console →':'Open Settings →'}</button></Card></div>;
+}
 
 function Practice({ timer, setTimer, running, setRunning, dsa, setState }) { const [lang,setLang]=useState('cpp'); const fmt=t=>`${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`; const d=(key,delta)=>setState(s=>({...s,dsa:{...s.dsa,[key]:Math.max(0,Number(s.dsa[key]||0)+delta)}})); const editor={cpp:'https://onecompiler.com/embed/cpp?theme=dark',python:'https://onecompiler.com/embed/python?theme=dark',sql:'https://onecompiler.com/embed/sql?theme=dark'}; return <div><PageTitle eyebrow="PRACTICE LAB" title="Code, solve, reflect." subtitle="Use the embedded runner for quick experiments; keep serious projects in your local editor and Git repository."/><div className="practice-grid"><Card className="editor-card"><div className="lab-toolbar"><div className="segmented">{['cpp','python','sql'].map(x=><button key={x} className={lang===x?'active':''} onClick={()=>setLang(x)}>{x.toUpperCase()}</button>)}</div><a className="text-link" href="https://jupyter.org/try" target="_blank" rel="noreferrer">Open Jupyter ↗</a></div><iframe className="editor-frame" src={editor[lang]} title={`${lang} editor`} /></Card><div className="stack"><Card><SectionHeader title="Focus timer" action="25 / 5"/><div className="timer-wrap"><div className="timer">{fmt(timer)}</div><div className="timer-actions"><button className="btn primary" onClick={()=>setRunning(!running)}>{running?'Pause':'Start'}</button><button className="btn ghost" onClick={()=>{setRunning(false);setTimer(25*60)}}>Reset</button></div></div></Card><Card><SectionHeader title="DSA log" action="manual, not estimated"/><div className="dsa-grid">{[['easy','Easy'],['medium','Medium'],['hard','Hard']].map(([key,label])=><div className="dsa-box" key={key}><span>{label}</span><strong>{dsa[key]}</strong><div className="dsa-actions"><button onClick={()=>d(key,-1)}>−</button><button onClick={()=>d(key,1)}>+</button></div></div>)}</div></Card></div></div></div>; }
 
-function Planner({ state, setState, today }) { const days=weeklyTemplate; const [editing,setEditing]=useState(false); const plan=state.planner||{}; const toggle=(day)=>setState(s=>({...s,planner:{...s.planner,[day]:!s.planner?.[day]}})); return <div><PageTitle eyebrow="WEEKLY PLANNER" title="A sustainable study week" subtitle="Use the template as a baseline; adapt around lectures, labs, exams and life."/><div className="planner-banner"><div><Badge tone="purple">NEXT ACTION</Badge><h3>{today?.label}</h3><p className="muted">Finish the smallest complete learning unit before chasing new topics.</p></div><button className="btn ghost" onClick={()=>setEditing(v=>!v)}>{editing?'Done':'Customize week'}</button></div><div className="planner-grid">{days.map(d=><Card key={d.day} className={plan[d.day]?'planned':''}><div className="planner-day"><div className="day-badge">{d.day}</div><div><div className="muted caps">{d.minutes} min</div><h3>{d.focus}</h3></div></div>{editing ? <textarea className="planner-note" value={state.notes[`plan:${d.day}`]||''} onChange={e=>setState(s=>({...s,notes:{...s.notes,[`plan:${d.day}`]:e.target.value}}))} placeholder="Write exact tasks..."/> : <div className="planner-task"><span>{state.notes[`plan:${d.day}`]||'Add tasks in Customize week'}</span><button className="tiny-link" onClick={()=>toggle(d.day)}>{plan[d.day]?'Mark done':'Mark planned'}</button></div>}</Card>)}</div></div>; }
+function Planner({ state, setState, today }) { const days=weeklyTemplate; const [editing,setEditing]=useState(false); const plan=state.planner||{}; const toggle=(day)=>setState(s=>({...s,planner:{...s.planner,[day]:!s.planner?.[day]}})); const category=(focus)=>focus.includes('DSA')?'violet':focus.includes('Project')?'amber':focus.includes('Math')?'blue':'teal'; return <div><PageTitle eyebrow="WEEKLY PLANNER" title="A sustainable study week" subtitle="Turn the roadmap into a calm, realistic week — then protect the sessions that matter."/><div className="planner-banner"><div><Badge tone="coral">NEXT ACTION</Badge><h3>{today?.label}</h3><p className="muted">Finish the smallest complete learning unit before chasing new topics.</p></div><button className="btn ghost" onClick={()=>setEditing(v=>!v)}>{editing?'Done':'Customize week'}</button></div><div className="planner-grid">{days.map(d=><Card key={d.day} className={`planner-card ${plan[d.day]?'planned':''}`}><div className="planner-day"><div className="day-badge">{d.day}</div><div><div className="planner-meta"><Badge tone={category(d.focus)}>{d.focus.includes('DSA')?'DSA':d.focus.includes('Project')?'PROJECT':d.focus.includes('Math')?'REVISION':'STUDY'}</Badge><span>{d.minutes} min</span></div><h3>{d.focus}</h3></div></div>{editing ? <textarea className="planner-note" value={state.notes[`plan:${d.day}`]||''} onChange={e=>setState(s=>({...s,notes:{...s.notes,[`plan:${d.day}`]:e.target.value}}))} placeholder="Write exact tasks..."/> : <div className="planner-task"><span>{state.notes[`plan:${d.day}`]||'Add tasks in Customize week'}</span><button className="tiny-link" onClick={()=>toggle(d.day)}>{plan[d.day]?'Completed ✓':'Mark complete'}</button></div>}</Card>)}</div></div>; }
 
 function Notes({ state, updateNote }) { const noteKeys=Object.keys(state.notes||{}).filter(k=>k.startsWith('topic:')); const [active,setActive]=useState(noteKeys[0]||'quick'); const value=state.notes[active]||''; return <div><PageTitle eyebrow="NOTES" title="Your learning notebook" subtitle="Topic notes and weekly notes stay local in this version. Export them before moving devices."/><div className="notes-layout"><Card className="notes-sidebar"><SectionHeader title="Notebook"/><button className={active==='quick'?'note-nav active':'note-nav'} onClick={()=>setActive('quick')}>Quick note</button>{noteKeys.map(k=><button key={k} className={active===k?'note-nav active':'note-nav'} onClick={()=>setActive(k)}>{k.replace('topic:','').replaceAll(':',' / ')}</button>)}</Card><Card><div className="note-top"><div><div className="eyebrow">{active==='quick'?'QUICK NOTE':'TOPIC NOTE'}</div><h2>{active==='quick'?'Scratchpad':active.replace('topic:','')}</h2></div><span className="muted">autosaved</span></div><textarea className="notes-big" value={value} onChange={e=>updateNote(active,e.target.value)} placeholder="Write your notes here..."/></Card></div></div>; }
 
-function Projects({ state, set }) { const projects=[['Year 1','C++ Student / Bank Management CLI','C++ · OOP · File I/O'],['Year 2','Data Analytics Dashboard','Python · Pandas · Streamlit'],['Year 2','SQL-backed Web App','SQL · API · JS'],['Year 3','Image Classification Application','PyTorch · CNN · API'],['Year 3','NLP Service','Transformers · FastAPI · Docker'],['Year 4','RAG + Knowledge Base','Embeddings · Retrieval · Evaluation'],['Year 4','Capstone System','Research · Engineering · Deployment']]; return <div><PageTitle eyebrow="PROJECT STUDIO" title="Build proof, not just certificates." subtitle="Projects should grow with your prerequisites. Keep the scope realistic and document what you learned."/><div className="project-grid">{projects.map(([year,title,stack],i)=><Card key={title} className="project-card"><div className="project-year">{year}</div><h3>{title}</h3><p className="muted">{stack}</p><ProgressBar value={state.progress[`project:${i}`]?100:0} tone="green"/><button className="btn ghost small wide" onClick={()=>set({progress:{...state.progress,[`project:${i}`]:!state.progress[`project:${i}`]}})}>{state.progress[`project:${i}`]?'Completed ✓':'Mark project checkpoint'}</button></Card>)}</div></div>; }
+function Projects({ state, set }) { const projects=[['Year 1','C++ Student / Bank Management CLI','C++ · OOP · File I/O','Foundation','Build a reliable command-line product with persistent records.'],['Year 2','Data Analytics Dashboard','Python · Pandas · Streamlit','Data','Turn a messy dataset into a decision-ready story.'],['Year 2','SQL-backed Web App','SQL · API · JS','Systems','Model, query, and surface a useful workflow.'],['Year 3','Image Classification Application','PyTorch · CNN · API','AI/ML','Take a model from experiment to a usable interface.'],['Year 3','NLP Service','Transformers · FastAPI · Docker','AI/ML','Package an NLP capability as an observable service.'],['Year 4','RAG + Knowledge Base','Embeddings · Retrieval · Evaluation','GenAI','Ground answers in a source-aware knowledge system.'],['Year 4','Capstone System','Research · Engineering · Deployment','Capstone','Ship a focused product with evidence and a narrative.']]; const tones=['violet','teal','blue','pink','coral','amber','violet']; return <div><PageTitle eyebrow="PROJECT STUDIO" title="Build proof, not just certificates." subtitle="Projects are portfolio artifacts: clear scope, real constraints, and evidence that you can ship."/><div className="project-grid">{projects.map(([year,title,stack,kind,description],i)=><Card key={title} className={`project-card project-tone-${tones[i]}`}><div className="project-card-head"><div><div className="project-year">{year}</div><Badge tone={tones[i]}>{kind}</Badge></div><span className="project-count">0{i+1}</span></div><h3>{title}</h3><p className="muted">{description}</p><div className="project-stack">{stack.split(' · ').map(item=><span key={item}>{item}</span>)}</div><div className="project-progress"><span>Milestone progress</span><ProgressBar value={state.progress[`project:${i}`]?100:0} tone={tones[i]}/></div><button className="btn ghost small wide" onClick={()=>set({progress:{...state.progress,[`project:${i}`]:!state.progress[`project:${i}`]}})}>{state.progress[`project:${i}`]?'Completed ✓':'Mark milestone complete'}</button></Card>)}</div></div>; }
 
 function Career({ state, set }) { const stages=[['Year 1','GitHub + first projects','Create a clean profile and make three small but complete repositories.'],['Year 2','Internship foundations','Strengthen DSA, projects, resume and basic web/API skills.'],['Year 3','Real internship + production skills','Ship ML applications, APIs, Docker, testing and deployment.'],['Year 4','Placement + capstone','Polish portfolio, practice interviews and finish the capstone strongly.']]; return <div><PageTitle eyebrow="CAREER" title="Graduate with evidence." subtitle="Use this as a guide, not a checklist of hype. Projects and fundamentals matter more than badge collecting."/><div className="career-grid">{stages.map(([year,title,desc],i)=><Card key={year}><Badge tone="purple">{year}</Badge><h2>{title}</h2><p className="muted">{desc}</p><ul className="clean-list">{['GitHub presence','Project documentation','Resume-ready evidence','Interview practice'].map(x=><li key={x}>✓ {x}</li>)}</ul><button className="btn ghost small" onClick={()=>set({tab:'analytics'})}>View progress →</button></Card>)}</div></div>; }
 
@@ -302,6 +448,121 @@ function Settings({ state, setState, cloudMessage, onLogin, onSignup, onLogout }
       <Card><SectionHeader title="Backup" action="portable"/><p className="muted">Export progress, notes, bookmarks, planner and counters to a JSON file.</p><div className="inline-actions"><button className="btn primary" onClick={exportData}>Export JSON</button><label className="btn ghost file-btn">Import JSON<input type="file" accept="application/json" onChange={importData}/></label></div></Card>
       <Card className="danger"><SectionHeader title="Danger zone"/><p className="muted">Reset local learning data. This does not delete your Supabase account.</p><button className="btn danger-btn" onClick={reset}>Reset local data</button></Card>
     </div></div>;
+}
+
+
+function AdminConsole({ resources, setResources, message }) {
+  const [editing, setEditing] = useState(null);
+  const [name, setName] = useState('');
+  const [focus, setFocus] = useState('');
+  const [semester, setSemester] = useState('');
+  const [subject, setSubject] = useState('');
+  const [topic, setTopic] = useState('');
+  const [priority, setPriority] = useState('HIGH');
+  const [lang, setLang] = useState('Hindi/Hinglish');
+  const [kind, setKind] = useState('YouTube');
+  const [url, setUrl] = useState('');
+  const [practiceUrl, setPracticeUrl] = useState('');
+  const [description, setDescription] = useState('');
+  const [status, setStatus] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [filter, setFilter] = useState('');
+
+  const resetForm = () => {
+    setEditing(null);
+    setName(''); setFocus(''); setSemester(''); setSubject(''); setTopic(''); setPriority('HIGH');
+    setLang('Hindi/Hinglish'); setKind('YouTube'); setUrl(''); setPracticeUrl(''); setDescription('');
+  };
+
+  const startEdit = (row) => {
+    setEditing(row.id);
+    setName(row.name || ''); setFocus(row.focus || ''); setSemester(row.semester || ''); setSubject(row.subject || ''); setTopic(row.topic || '');
+    setPriority(row.priority || 'HIGH'); setLang(row.lang || 'Hindi/Hinglish'); setKind(row.kind || 'YouTube'); setUrl(row.url || '');
+    setPracticeUrl(row.practice_url || ''); setDescription(row.description || ''); setStatus('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const save = async () => {
+    if (!name.trim() || !url.trim()) return setStatus('Name and URL are required.');
+    setSaving(true); setStatus('Saving…');
+    try {
+      const payload = {
+        name: name.trim(), focus: focus.trim(), semester: semester.trim(), subject: subject.trim(), topic: topic.trim(),
+        priority, lang, kind, url: url.trim(), practice_url: practiceUrl.trim(), description: description.trim()
+      };
+      if (editing) {
+        const row = await cloud.updateResource(editing, payload);
+        if (!row) throw new Error('Resource update returned no row.');
+        setResources(resources.map(r => r.id === editing ? row : r));
+        setStatus('Resource updated ✓');
+      } else {
+        const row = await cloud.createResource(payload);
+        if (!row) throw new Error('Resource creation returned no row.');
+        setResources([...resources, row].sort((a,b)=>String(a.name).localeCompare(String(b.name))));
+        setStatus('Resource added ✓');
+      }
+      resetForm();
+    } catch (e) { setStatus(e?.message || 'Could not save resource.'); }
+    finally { setSaving(false); }
+  };
+
+  const remove = async (id) => {
+    if (!confirm('Delete this resource from the cloud catalog?')) return;
+    try {
+      await cloud.deleteResource(id);
+      setResources(resources.filter(r => r.id !== id));
+      if (editing === id) resetForm();
+      setStatus('Resource deleted ✓');
+    } catch (e) { setStatus(e?.message || 'Could not delete resource.'); }
+  };
+
+  const visible = resources.filter(r => {
+    const q = filter.trim().toLowerCase();
+    return !q || `${r.name} ${r.focus} ${r.semester||''} ${r.subject||''} ${r.topic||''} ${r.lang||''} ${r.priority||''}`.toLowerCase().includes(q);
+  });
+
+  return <div>
+    <PageTitle eyebrow="ADMIN CONSOLE" title="Maintain the learning catalog." subtitle="Edit cloud-backed resources without touching the React code or redeploying the app." />
+    {message && <div className="notice">{message}</div>}
+    {status && <div className="notice">{status}</div>}
+    <Card className="admin-editor">
+      <div className="admin-toolbar">
+        <div><div className="eyebrow">RESOURCE MANAGER</div><h2>{editing ? 'Edit resource' : 'Add resource'}</h2></div>
+        <div className="admin-actions">{editing && <button className="btn ghost small" onClick={resetForm}>Cancel edit</button>}<button className="btn primary small" disabled={saving} onClick={save}>{saving ? 'Saving…' : editing ? 'Save changes' : 'Add resource'}</button></div>
+      </div>
+      <div className="form-grid">
+        <label><span>Name</span><input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. CampusX" /></label>
+        <label><span>Focus</span><input value={focus} onChange={e=>setFocus(e.target.value)} placeholder="e.g. Machine Learning" /></label>
+        <label><span>Semester</span><input value={semester} onChange={e=>setSemester(e.target.value)} placeholder="e.g. Sem 3" /></label>
+        <label><span>Subject</span><input value={subject} onChange={e=>setSubject(e.target.value)} placeholder="e.g. Introduction to ML" /></label>
+        <label><span>Topic</span><input value={topic} onChange={e=>setTopic(e.target.value)} placeholder="e.g. Linear Regression" /></label>
+        <label><span>Priority</span><select value={priority} onChange={e=>setPriority(e.target.value)}><option>MUST</option><option>HIGH</option><option>USEFUL</option><option>OPTIONAL</option><option>LATER</option></select></label>
+        <label><span>Language</span><select value={lang} onChange={e=>setLang(e.target.value)}><option>Hindi</option><option>Hindi/Hinglish</option><option>Hinglish</option><option>English</option></select></label>
+        <label><span>Type</span><select value={kind} onChange={e=>setKind(e.target.value)}><option>YouTube</option><option>Website</option><option>Docs</option><option>Course</option></select></label>
+        <label style={{gridColumn:'1 / -1'}}><span>Primary URL</span><input value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://..." /></label>
+        <label style={{gridColumn:'1 / -1'}}><span>Practice URL</span><input value={practiceUrl} onChange={e=>setPracticeUrl(e.target.value)} placeholder="https://leetcode.com/... or https://..." /></label>
+        <label style={{gridColumn:'1 / -1'}}><span>Description</span><input value={description} onChange={e=>setDescription(e.target.value)} placeholder="Short description shown to students" /></label>
+      </div>
+    </Card>
+
+    <Card>
+      <SectionHeader title={`Cloud resources (${resources.length})`} action="stored in Supabase" />
+      <input className="admin-search" value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search resource, semester, subject, topic…" />
+      <div className="admin-list">
+        {visible.map(row => <div key={row.id} className="subject-row resource-admin-row">
+          <div>
+            <strong>{row.name}</strong>
+            <span>{[row.semester,row.subject,row.topic,row.priority,row.lang,row.kind].filter(Boolean).join(' · ')}</span>
+            <span className="muted">{row.focus}</span>
+            <a href={row.url} target="_blank" rel="noreferrer">{row.url}</a>
+            {row.practice_url && <a href={row.practice_url} target="_blank" rel="noreferrer">Practice ↗</a>}
+          </div>
+          <div className="admin-actions"><button className="btn ghost small" onClick={()=>startEdit(row)}>Edit</button><button className="btn danger-btn small" onClick={()=>remove(row.id)}>Delete</button></div>
+        </div>)}
+        {!visible.length && <p className="muted">No matching cloud resources.</p>}
+      </div>
+    </Card>
+  </div>;
 }
 
 function PageTitle({ eyebrow, title, subtitle }) { return <div className="page-head"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{subtitle}</p></div></div>; }
