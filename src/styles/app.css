@@ -3948,3 +3948,62 @@ h3{font-weight:700;letter-spacing:-.02em}
     min-width: 0 !important;
   }
 }
+
+/* =========================================================
+   MOBILE LEARNING OS MAP - FINAL FIT FIX
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .hero-gcore-stage {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .gcore-network {
+    width: 520px !important;
+    max-width: none !important;
+    position: relative !important;
+    left: 50% !important;
+    transform: translateX(-50%) scale(0.72) !important;
+    transform-origin: top center !important;
+    margin-bottom: -110px !important;
+  }
+
+  .gcore-core {
+    z-index: 20 !important;
+  }
+
+  .gcore-node {
+    z-index: 5 !important;
+    white-space: normal !important;
+  }
+
+  .gcore-projects strong,
+  .gcore-python strong,
+  .gcore-cpp strong,
+  .gcore-ml strong,
+  .gcore-dsa strong,
+  .gcore-ai strong {
+    white-space: nowrap !important;
+  }
+
+  .gcore-projects {
+    min-width: 105px !important;
+  }
+
+  .gcore-python {
+    min-width: 105px !important;
+  }
+
+  .gcore-lines {
+    z-index: 1 !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .gcore-network {
+    transform: translateX(-50%) scale(0.64) !important;
+    margin-bottom: -145px !important;
+  }
+}
