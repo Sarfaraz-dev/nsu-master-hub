@@ -3749,3 +3749,127 @@ h3{font-weight:700;letter-spacing:-.02em}
     transform: none !important;
   }
 }
+
+/* =========================================================
+   MOBILE / DESKTOP-SITE FIX
+   ========================================================= */
+
+@media (hover: none) and (pointer: coarse) {
+
+  /* Mobile screen par desktop grid ko force mat hone do */
+  .app-shell {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .main {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Sidebar drawer */
+  .sidebar {
+    position: fixed !important;
+    left: 0 !important;
+    top: 76px !important;
+    bottom: 0 !important;
+    width: min(300px, 86vw) !important;
+    height: calc(100vh - 76px) !important;
+    z-index: 999 !important;
+
+    transform: translateX(-105%) !important;
+    transition: transform .3s ease !important;
+  }
+
+  .sidebar.show {
+    transform: translateX(0) !important;
+  }
+
+  /* Cards/content ko viewport ke bahar jaane se roko */
+  .page-transition,
+  .year-showcase-card,
+  .semester-journey-card,
+  .track-card-v13,
+  .topic-sequence-v13,
+  .topic-resource-v13,
+  .topic-notes-v13 {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Learning OS skill map */
+  .node-ai,
+  .node-project {
+    display: none !important;
+  }
+
+  .hero-core {
+    left: 50% !important;
+    z-index: 20 !important;
+  }
+
+  .node-cpp {
+    left: 7% !important;
+    top: 42% !important;
+    bottom: auto !important;
+    z-index: 10 !important;
+  }
+
+  .node-ml {
+    right: 7% !important;
+    top: 42% !important;
+    bottom: auto !important;
+    z-index: 10 !important;
+  }
+
+  .node-dsa {
+    left: 14% !important;
+    bottom: 22px !important;
+    top: auto !important;
+    z-index: 10 !important;
+  }
+
+  .node-python {
+    right: 14% !important;
+    bottom: 22px !important;
+    top: auto !important;
+    z-index: 10 !important;
+  }
+}
+
+
+/* Extra narrow phones */
+@media (max-width: 420px) and (pointer: coarse) {
+
+  .main {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .hero-copy {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .hero-copy h1 {
+    font-size: 32px !important;
+  }
+
+  .hero-core {
+    width: 76px !important;
+    height: 76px !important;
+  }
+
+  .node-cpp,
+  .node-ml {
+    top: 43% !important;
+  }
+
+  .node-dsa,
+  .node-python {
+    bottom: 20px !important;
+  }
+}
