@@ -3248,3 +3248,504 @@ h3{font-weight:700;letter-spacing:-.02em}
     width: auto;
   }
 }
+
+/* ============================================================
+   NSU MASTER HUB — FINAL RESPONSIVE PATCH
+   Put this at the VERY END of app.css
+   ============================================================ */
+
+/* ---------- MOBILE SIDEBAR ---------- */
+
+.mobile-nav-backdrop {
+  display: none;
+}
+
+@media (max-width: 860px) {
+
+  .mobile-only {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .app-shell {
+    display: block !important;
+    min-height: calc(100vh - 72px);
+  }
+
+  .sidebar {
+    position: fixed !important;
+    left: 0 !important;
+    top: 72px !important;
+    bottom: 0 !important;
+    width: min(300px, 86vw) !important;
+    height: auto !important;
+    z-index: 999 !important;
+
+    transform: translateX(-105%) !important;
+    transition: transform .3s cubic-bezier(.22,1,.36,1) !important;
+
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+  }
+
+  .sidebar.show {
+    transform: translateX(0) !important;
+  }
+
+  .mobile-nav-backdrop {
+    display: block !important;
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 998 !important;
+    background: rgba(0,0,0,.48) !important;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+  }
+
+  .main {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 22px 18px 48px !important;
+  }
+
+  .footer {
+    flex-wrap: wrap;
+  }
+}
+
+
+/* ---------- TABLET ---------- */
+
+@media (max-width: 1100px) {
+
+  .topbar {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .main {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .global-search {
+    width: min(360px, 34vw);
+  }
+
+  .stat-grid,
+  .stat-strip {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+  }
+
+  .today-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .semester-columns-v13,
+  .topic-layout-v13 {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-top {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+  }
+
+  .settings-grid,
+  .career-grid {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+  }
+}
+
+
+/* ---------- SMALL TABLET / MOBILE ---------- */
+
+@media (max-width: 860px) {
+
+  /* Header */
+
+  .topbar {
+    height: 72px !important;
+    gap: 8px;
+  }
+
+  .brand-sub {
+    display: none;
+  }
+
+  .brand-title {
+    font-size: 13px;
+  }
+
+  .brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+
+  .top-actions {
+    gap: 6px;
+  }
+
+  .progress-chip {
+    padding: 8px 9px;
+    font-size: 10px;
+  }
+
+  .global-search {
+    width: 42px !important;
+    min-width: 42px !important;
+    padding: 0 !important;
+    justify-content: center;
+  }
+
+  .global-search .search-placeholder,
+  .global-search kbd {
+    display: none;
+  }
+
+  /* Generic grids */
+
+  .stat-grid,
+  .stat-strip,
+  .analytics-top,
+  .settings-grid,
+  .career-grid,
+  .project-grid,
+  .practice-grid,
+  .notes-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Hero */
+
+  .hero.hero-v12,
+  .hero.hero-gcore {
+    display: block !important;
+    min-height: auto !important;
+  }
+
+  .hero-gcore-copy,
+  .hero-copy {
+    padding: 34px 22px 20px !important;
+  }
+
+  .hero-gcore-copy h1,
+  .hero-copy h1 {
+    font-size: clamp(36px, 10vw, 54px) !important;
+  }
+
+  .hero-gcore-stage,
+  .hero-visual {
+    min-height: 360px !important;
+    margin: 12px !important;
+  }
+
+  /* Today's section */
+
+  .today-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mission-main {
+    grid-template-columns: 1fr !important;
+  }
+
+  .mission-number {
+    display: none;
+  }
+
+  .learn-loop {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Roadmap */
+
+  .roadmap-hero-head {
+    grid-template-columns: 1fr !important;
+  }
+
+  .year-section-v12 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .year-semesters {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Semester */
+
+  .semester-hero-v13 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .semester-columns-v13 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .subject-list-v13 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Topic */
+
+  .topic-hero-v13 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .topic-layout-v13 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Resources */
+
+  .resources-hero-v13 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .resource-toolbar-v13 {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .featured-resource-v13 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Planner */
+
+  .planner-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Admin */
+
+  .admin-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 16px;
+  }
+
+  .admin-actions {
+    flex-wrap: wrap;
+  }
+
+  /* Footer */
+
+  .footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+
+/* ---------- PHONE ---------- */
+
+@media (max-width: 620px) {
+
+  .topbar {
+    padding: 0 10px !important;
+  }
+
+  .brand {
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .brand-title {
+    max-width: 125px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .main {
+    padding: 18px 12px 40px !important;
+  }
+
+  h1 {
+    font-size: clamp(32px, 10vw, 46px) !important;
+  }
+
+  h2 {
+    font-size: 21px;
+  }
+
+  /* Buttons */
+
+  .hero-actions,
+  .mission-actions,
+  .inline-actions {
+    flex-wrap: wrap;
+  }
+
+  .hero-actions .btn,
+  .mission-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Cards */
+
+  .card {
+    padding: 17px !important;
+    border-radius: 15px !important;
+  }
+
+  /* Hero visual */
+
+  .hero-gcore-stage,
+  .hero-visual {
+    min-height: 320px !important;
+    margin: 8px !important;
+  }
+
+  /* Hide secondary visual elements if they become cramped */
+
+  .hero-floating-card {
+    transform: scale(.85);
+    transform-origin: center;
+  }
+
+  .hero-float-top {
+    top: 45px;
+    right: 5px;
+  }
+
+  .hero-float-bottom {
+    left: 5px;
+    bottom: 8px;
+  }
+
+  .hero-float-dsa {
+    right: 5px;
+    bottom: 8px;
+  }
+
+  /* GCORE network */
+
+  .gcore-network {
+    transform: scale(.78);
+    transform-origin: center;
+  }
+
+  .gcore-metrics {
+    transform: scale(.82);
+    transform-origin: bottom center;
+  }
+
+  /* Semester */
+
+  .semester-meta-row,
+  .topic-hero-actions,
+  .featured-chips,
+  .resource-meta-v13 {
+    flex-wrap: wrap !important;
+  }
+
+  /* Tables / long content */
+
+  .subject-card-v13,
+  .resource-admin-row {
+    min-width: 0 !important;
+  }
+
+  /* Admin form */
+
+  .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .form-grid label[style*="grid-column"] {
+    grid-column: auto !important;
+  }
+
+  /* Command palette */
+
+  .overlay {
+    padding: 10px !important;
+  }
+
+  .command {
+    width: 100% !important;
+    max-height: 90vh;
+  }
+
+  .command-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Editor */
+
+  .editor-frame {
+    min-height: 500px;
+  }
+
+  /* Notes */
+
+  .notes-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Footer */
+
+  .footer {
+    padding: 14px 12px;
+    font-size: 9px;
+  }
+}
+
+
+/* ---------- VERY SMALL PHONES ---------- */
+
+@media (max-width: 400px) {
+
+  .progress-chip {
+    display: none;
+  }
+
+  .brand-title {
+    max-width: 105px;
+  }
+
+  .top-actions {
+    gap: 4px;
+  }
+
+  .icon-action {
+    min-width: 34px;
+    height: 34px;
+  }
+
+  .mobile-only {
+    min-width: 36px !important;
+  }
+
+  .hero-gcore-copy,
+  .hero-copy {
+    padding: 28px 17px 16px !important;
+  }
+
+  .hero-gcore-copy h1,
+  .hero-copy h1 {
+    font-size: 34px !important;
+  }
+}
+
+
+/* ---------- DESKTOP SAFETY ---------- */
+
+@media (min-width: 861px) {
+
+  .mobile-only {
+    display: none !important;
+  }
+
+  .mobile-nav-backdrop {
+    display: none !important;
+  }
+
+  .sidebar {
+    position: sticky !important;
+    transform: none !important;
+  }
+}
