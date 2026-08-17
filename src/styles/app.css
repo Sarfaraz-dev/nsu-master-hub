@@ -3750,97 +3750,6 @@ h3{font-weight:700;letter-spacing:-.02em}
   }
 }
 
-/* =========================================================
-   MOBILE / DESKTOP-SITE FIX
-   ========================================================= */
-
-@media (hover: none) and (pointer: coarse) {
-
-  /* Mobile screen par desktop grid ko force mat hone do */
-  .app-shell {
-    display: block !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
-  .main {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    overflow-x: hidden !important;
-  }
-
-  /* Sidebar drawer */
-  .sidebar {
-    position: fixed !important;
-    left: 0 !important;
-    top: 76px !important;
-    bottom: 0 !important;
-    width: min(300px, 86vw) !important;
-    height: calc(100vh - 76px) !important;
-    z-index: 999 !important;
-
-    transform: translateX(-105%) !important;
-    transition: transform .3s ease !important;
-  }
-
-  .sidebar.show {
-    transform: translateX(0) !important;
-  }
-
-  /* Cards/content ko viewport ke bahar jaane se roko */
-  .page-transition,
-  .year-showcase-card,
-  .semester-journey-card,
-  .track-card-v13,
-  .topic-sequence-v13,
-  .topic-resource-v13,
-  .topic-notes-v13 {
-    max-width: 100% !important;
-    min-width: 0 !important;
-  }
-
-  /* Learning OS skill map */
-  .node-ai,
-  .node-project {
-    display: none !important;
-  }
-
-  .hero-core {
-    left: 50% !important;
-    z-index: 20 !important;
-  }
-
-  .node-cpp {
-    left: 7% !important;
-    top: 42% !important;
-    bottom: auto !important;
-    z-index: 10 !important;
-  }
-
-  .node-ml {
-    right: 7% !important;
-    top: 42% !important;
-    bottom: auto !important;
-    z-index: 10 !important;
-  }
-
-  .node-dsa {
-    left: 14% !important;
-    bottom: 22px !important;
-    top: auto !important;
-    z-index: 10 !important;
-  }
-
-  .node-python {
-    right: 14% !important;
-    bottom: 22px !important;
-    top: auto !important;
-    z-index: 10 !important;
-  }
-}
-
-
 /* Extra narrow phones */
 @media (max-width: 420px) and (pointer: coarse) {
 
@@ -3871,5 +3780,171 @@ h3{font-weight:700;letter-spacing:-.02em}
   .node-dsa,
   .node-python {
     bottom: 20px !important;
+  }
+}
+
+/* =========================================================
+   FINAL RESPONSIVE FIX
+   ========================================================= */
+
+/* ---------- MOBILE ---------- */
+@media (max-width: 768px) {
+
+  /* Main layout */
+  .app-shell {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .main {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 22px 16px 50px !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Mobile sidebar */
+  .sidebar {
+    position: fixed !important;
+    left: 0 !important;
+    top: 76px !important;
+    bottom: 0 !important;
+
+    width: min(290px, 84vw) !important;
+    height: calc(100vh - 76px) !important;
+
+    z-index: 1000 !important;
+
+    transform: translateX(-110%) !important;
+    transition: transform .3s ease !important;
+  }
+
+  .sidebar.show {
+    transform: translateX(0) !important;
+  }
+
+
+  /* ---------- LEARNING OS ---------- */
+
+  .hero-gcore-stage {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .gcore-network {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Learning OS core ALWAYS above the surrounding nodes */
+  .gcore-core {
+    z-index: 20 !important;
+  }
+
+  /* Top nodes */
+  .gcore-cpp {
+    left: 5% !important;
+    top: 18% !important;
+    z-index: 5 !important;
+  }
+
+  .gcore-ml {
+    right: 5% !important;
+    top: 18% !important;
+    z-index: 5 !important;
+  }
+
+  /* Middle nodes — move them away from Learning OS */
+  .gcore-ai {
+    left: 3% !important;
+    top: 48% !important;
+    z-index: 5 !important;
+  }
+
+  .gcore-projects {
+    right: 3% !important;
+    top: 48% !important;
+    z-index: 5 !important;
+  }
+
+  /* Bottom nodes */
+  .gcore-dsa {
+    left: 8% !important;
+    bottom: 10% !important;
+    z-index: 5 !important;
+  }
+
+  .gcore-python {
+    right: 8% !important;
+    bottom: 10% !important;
+    z-index: 5 !important;
+  }
+
+  /* Core stays visually in front */
+  .gcore-core {
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+  }
+
+  /* Don't let the SVG lines cover the cards */
+  .gcore-lines {
+    z-index: 1 !important;
+  }
+}
+
+
+/* ---------- VERY SMALL PHONES ---------- */
+@media (max-width: 420px) {
+
+  .main {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  .hero-gcore-stage {
+    min-height: 430px !important;
+  }
+
+  .gcore-node {
+    transform: scale(.82) !important;
+  }
+
+  .gcore-core {
+    transform: translate(-50%, -50%) scale(.9) !important;
+  }
+
+  .gcore-ai {
+    left: 0 !important;
+  }
+
+  .gcore-projects {
+    right: 0 !important;
+  }
+}
+
+
+/* ---------- DESKTOP / DESKTOP MODE ---------- */
+@media (min-width: 769px) {
+
+  .sidebar {
+    position: sticky !important;
+    top: 76px !important;
+    transform: none !important;
+    display: flex !important;
+    visibility: visible !important;
+  }
+
+  .app-shell {
+    display: grid !important;
+    grid-template-columns: 246px minmax(0, 1fr) !important;
+  }
+
+  .main {
+    min-width: 0 !important;
   }
 }
