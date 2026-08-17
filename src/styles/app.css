@@ -2708,3 +2708,22 @@ h3{font-weight:700;letter-spacing:-.02em}
   .gcore-core strong{font-size:16px}
   .gcore-metrics{grid-template-columns:1fr;}
 }
+
+.mobile-nav-backdrop {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .mobile-nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 998;
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(2px);
+  }
+
+  .sidebar {
+    z-index: 999;
+  }
+}
