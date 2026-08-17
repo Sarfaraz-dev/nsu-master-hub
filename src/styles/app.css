@@ -2727,3 +2727,524 @@ h3{font-weight:700;letter-spacing:-.02em}
     z-index: 999;
   }
 }
+
+/* =========================================================
+   GLOBAL MOBILE RESPONSIVE FIX
+   NSU MASTER HUB
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+  /* ---------- GLOBAL ---------- */
+
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  #root,
+  .app {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .app-shell {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .main {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .page-transition {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* Prevent long content from creating horizontal scroll */
+  .card,
+  section,
+  article,
+  aside,
+  div {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  img,
+  iframe,
+  video {
+    max-width: 100%;
+  }
+
+  /* ---------- TOPBAR ---------- */
+
+  .topbar {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .brand {
+    min-width: 0;
+  }
+
+  .brand-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .brand-sub {
+    display: none;
+  }
+
+  .top-actions {
+    min-width: 0;
+  }
+
+  .global-search {
+    display: none;
+  }
+
+  /* ---------- HERO / DASHBOARD ---------- */
+
+  .hero,
+  .hero-gcore {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .hero-gcore-copy,
+  .hero-gcore-stage {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .gcore-network {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .stat-grid,
+  .stat-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .today-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .today-grid > *,
+  .mission-card,
+  .semester-pulse {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .year-showcase {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ---------- ROADMAP ---------- */
+
+  .roadmap-hero-head,
+  .page-head {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .roadmap-head-stat {
+    width: 100%;
+  }
+
+  .year-rail-v12 {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .year-section-v12 {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .year-copy,
+  .year-semesters {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .year-semesters {
+    grid-template-columns: 1fr !important;
+  }
+
+  .semester-journey-card {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* ---------- SEMESTER ---------- */
+
+  .semester-hero-v13 {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .semester-columns-v13 {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .academic-panel-v13,
+  .industry-panel-v13 {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .industry-stack-v13 {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .track-card-v13 {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* ---------- TOPIC DEEP DIVE ---------- */
+
+  .topic-v13 {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .topic-hero-v13 {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .topic-hero-v13 > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .topic-layout-v13 {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .topic-sequence-v13,
+  .topic-side-v13 {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .topic-side-v13 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .topic-resource-v13,
+  .topic-notes-v13 {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .topic-resource-card-v13 {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .sequence-list-v13 {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sequence-item-v13 {
+    min-width: 0;
+  }
+
+  .sequence-main-v13 {
+    min-width: 0;
+  }
+
+  .sequence-main-v13 strong,
+  .sequence-main-v13 span {
+    overflow-wrap: anywhere;
+  }
+
+  /* ---------- RESOURCES ---------- */
+
+  .resources-hero-v13 {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .resource-toolbar-v13 {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+  }
+
+  .resource-list-v13 {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .resource-card-v13 {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .featured-resource-v13 {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .featured-resource-v13 > * {
+    min-width: 0;
+  }
+
+  /* ---------- PRACTICE LAB ---------- */
+
+  .practice-grid {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .editor-card {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .editor-frame {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .dsa-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  /* ---------- PLANNER ---------- */
+
+  .planner-grid {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .planner-card {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .planner-banner {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* ---------- NOTES ---------- */
+
+  .notes-layout {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .notes-sidebar {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .notes-big {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* ---------- PROJECTS ---------- */
+
+  .project-grid {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .project-card {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* ---------- CAREER ---------- */
+
+  .career-grid {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* ---------- ANALYTICS ---------- */
+
+  .analytics-top {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .analytics-grid {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* ---------- SETTINGS ---------- */
+
+  .settings-grid {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* ---------- ADMIN ---------- */
+
+  .form-grid {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .form-grid label[style] {
+    grid-column: 1 / -1 !important;
+  }
+
+  .admin-list {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .resource-admin-row {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* ---------- BUTTONS / ACTIONS ---------- */
+
+  .hero-actions,
+  .mission-actions,
+  .topic-hero-actions,
+  .inline-actions,
+  .admin-actions {
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    max-width: 100%;
+  }
+
+  /* ---------- LONG TEXT ---------- */
+
+  h1,
+  h2,
+  h3,
+  p,
+  strong,
+  span,
+  a {
+    overflow-wrap: anywhere;
+  }
+}
+
+
+/* =========================================================
+   SMALL PHONE
+   ========================================================= */
+
+@media (max-width: 600px) {
+
+  .stat-grid,
+  .stat-strip,
+  .analytics-top {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dsa-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .topbar {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .brand-title {
+    font-size: 18px;
+  }
+
+  .main {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .page-head h1 {
+    font-size: clamp(32px, 9vw, 48px);
+  }
+
+  .hero h1 {
+    font-size: clamp(36px, 10vw, 58px);
+  }
+
+  .topic-hero-v13 h1,
+  .semester-hero-v13 h1 {
+    font-size: clamp(42px, 12vw, 72px);
+  }
+
+  .card {
+    max-width: 100%;
+  }
+
+  .hero-actions .btn,
+  .mission-actions .btn {
+    width: 100%;
+  }
+
+  .hero-actions,
+  .mission-actions {
+    width: 100%;
+  }
+
+  .hero-actions > *,
+  .mission-actions > * {
+    max-width: 100%;
+  }
+
+  .featured-resource-v13 {
+    gap: 24px;
+  }
+
+  .admin-actions .btn {
+    width: auto;
+  }
+}
