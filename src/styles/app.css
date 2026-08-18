@@ -3948,3 +3948,66 @@ h3{font-weight:700;letter-spacing:-.02em}
     min-width: 0 !important;
   }
 }
+
+/* FINAL MOBILE FIX - LEARNING OS */
+@media (max-width: 720px) {
+
+  .gcore-network {
+    width: calc(100% - 20px) !important;
+    min-height: 300px !important;
+    margin: 14px 10px 6px !important;
+    overflow: hidden !important;
+  }
+
+  .gcore-node {
+    width: 62px !important;
+    height: 52px !important;
+    box-sizing: border-box !important;
+  }
+
+  .gcore-cpp {
+    left: 5% !important;
+    top: 20% !important;
+  }
+
+  .gcore-ai {
+    left: 5% !important;
+    top: 50% !important;
+  }
+
+  .gcore-dsa {
+    left: 10% !important;
+    top: 80% !important;
+  }
+
+  .gcore-ml {
+    left: auto !important;
+    right: 5% !important;
+    top: 20% !important;
+  }
+
+  .gcore-projects {
+    left: auto !important;
+    right: 10% !important;
+    top: 50% !important;
+  }
+
+  .gcore-python {
+    left: auto !important;
+    right: 5% !important;
+    top: 80% !important;
+  }
+
+  .gcore-core {
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  .gcore-core strong {
+    font-size: 15px !important;
+  }
+
+  .gcore-core small {
+    font-size: 8px !important;
+  }
+}
